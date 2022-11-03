@@ -1152,8 +1152,21 @@ void ScheduleImpl::SimpleComputeAt(const Expr& block, const Expr& loop) {
       }
     }
   }
-
-  new_loop.As<ir::For>()->body = ir::Block::Make({result, new_loop.As<ir::For>()->body});
+  // When there are two identical IfThenElse
+  if (new_loop.As<ir::For>() && new_loop.As<ir::For>()->body.As<ir::Block>() &&
+      new_loop.As<ir::For>()->body.As<ir::Block>()->stmts[0].As<ir::IfThenElse>()) {
+    auto if_then_else = new_loop.As<ir::For>()->body.As<ir::Block>()->stmts[0];
+    CHECK(result.As<ir::IfThenElse>() &&
+          if_then_else.As<ir::IfThenElse>()->condition == result.As<ir::IfThenElse>()->condition)
+        << "Invalid SimpleComputeAt of \n"
+        << result << "\n and \n"
+        << new_loop;
+    new_loop.As<ir::For>()->body.As<ir::Block>()->stmts[0].As<ir::IfThenElse>()->true_case =
+        ir::Block::Make({result.As<ir::IfThenElse>()->true_case,
+                         new_loop.As<ir::For>()->body.As<ir::Block>()->stmts[0].As<ir::IfThenElse>()->true_case});
+  } else {
+    new_loop.As<ir::For>()->body = ir::Block::Make({result, new_loop.As<ir::For>()->body});
+  }
   Expr source_expr{nullptr};
   Expr target_expr{nullptr};
 
